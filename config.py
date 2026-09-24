@@ -74,3 +74,13 @@ MESES_PT = {
     11: "NOVEMBRO",
     12: "DEZEMBRO",
 }
+
+# ============================================================
+# EXCEÇÕES DE ATRIBUIÇÃO DE PROFESSOR
+# ============================================================
+
+EXCECOES_PROFESSOR = {
+    ("S3", "PSO"): [
+        "CLÁUDIA CRISTINA AROUCA NORBERTO",
+    ],
+}

@@ -10,6 +10,8 @@ from openpyxl import load_workbook
 from banco import conectar, criar_banco
 from config import ANO_PADRAO, CAMINHO_BANCO, PASTA_HORARIOS, TURMAS
 
+from config import EXCECOES_PROFESSOR
+
 
 SEPARADOR_PROFESSORES = re.compile(r"\s*/\s*")
 
@@ -115,6 +117,22 @@ def registrar_log(conn, cfg: dict, tipo: str, mensagem: str) -> None:
         ),
     )
 
+def obter_professores_disciplina(
+    turma: str,
+    sigla: str,
+    dicionario_professores: dict[str, list[str]],
+) -> list[str]:
+
+    turma = turma.strip().upper()
+    sigla = sigla.strip().upper()
+
+    chave_excecao = (turma, sigla)
+
+    if chave_excecao in EXCECOES_PROFESSOR:
+        return EXCECOES_PROFESSOR[chave_excecao]
+
+    return dicionario_professores.get(sigla, [])
+
 
 def importar_turma(conn, cfg: dict, ano: int = ANO_PADRAO) -> int:
     caminho_arquivo = PASTA_HORARIOS / cfg["arquivo"]
@@ -152,7 +170,11 @@ def importar_turma(conn, cfg: dict, ano: int = ANO_PADRAO) -> int:
             registros = defaultdict(lambda: {"aula_01": "", "aula_02": ""})
 
             if sigla_01:
-                professores = base.get(sigla_01)
+                professores = obter_professores_disciplina(
+                    cfg["turma"],
+                    sigla_01,
+                    base,
+                )
                 if professores:
                     for professor in professores:
                         registros[professor]["aula_01"] = sigla_01
@@ -165,7 +187,11 @@ def importar_turma(conn, cfg: dict, ano: int = ANO_PADRAO) -> int:
                     )
 
             if sigla_02:
-                professores = base.get(sigla_02)
+                professores = obter_professores_disciplina(
+                    cfg["turma"],
+                    sigla_02,
+                    base,
+                )
                 if professores:
                     for professor in professores:
                         registros[professor]["aula_02"] = sigla_02
