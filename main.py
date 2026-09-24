@@ -2,6 +2,7 @@ from banco import criar_banco
 from exportar_excel import exportar_mes
 from importar_horarios import importar_todos
 from resumo_mensal import atualizar_resumo_mensal
+from gerar_livro_ponto import gerar_livros_ponto
 
 
 def ler_ano_mes() -> tuple[int, int]:
@@ -22,6 +23,7 @@ def menu() -> None:
         print("3 - Atualizar resumo mensal")
         print("4 - Exportar mês para Excel")
         print("5 - Importar tudo e exportar um mês")
+        print("6 - Gerar livros ponto dos professores")
         print("0 - Sair")
 
         opcao = input("\nOpção: ").strip()
@@ -49,6 +51,19 @@ def menu() -> None:
                 importar_todos(ano)
                 caminho = exportar_mes(ano, mes)
                 print(f"Excel criado: {caminho}")
+
+            elif opcao == "6":
+                ano, mes = ler_ano_mes()
+
+                arquivos = gerar_livros_ponto(
+                    ano=ano,
+                    mes=mes,
+                )
+
+                print(
+                    f"\nLivros ponto gerados: {len(arquivos)}"
+                )
+    
 
             elif opcao == "0":
                 print("Encerrado.")
