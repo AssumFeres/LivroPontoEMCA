@@ -1,0 +1,28 @@
+# Ambiente virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Banco de dados gerado
+dados/*.db
+*.db
+
+# Exportações
+exportacoes/
+outputs/
+
+# Arquivos temporários do Excel
+~$*.xlsx
+
+# IDE
+.vscode/
+.idea/
+
+# Sistema
+Thumbs.db
+.DS_Store

@@ -1,0 +1,60 @@
+LIVRO PONTO - PROFESSORES EMCA
+==============================
+
+1. Crie a pasta:
+   C:\Projetos\LivroPontoEMCA
+
+2. Copie os arquivos deste projeto para essa pasta.
+
+3. Abra o PowerShell na pasta:
+   cd C:\Projetos\LivroPontoEMCA
+
+4. Crie o ambiente virtual:
+   python -m venv .venv
+
+5. Ative o ambiente virtual:
+   .\.venv\Scripts\Activate.ps1
+
+6. Instale a dependência:
+   python -m pip install -r requirements.txt
+
+7. Confira no arquivo config.py se a pasta de horários continua sendo:
+   C:\Users\391665\OneDrive\EMCA\Horários\2026
+
+8. Execute:
+   python main.py
+
+ARQUIVOS GERADOS
+----------------
+Banco SQLite:
+C:\Projetos\LivroPontoEMCA\dados\livro_ponto_emca.db
+
+Exportações mensais:
+C:\Projetos\LivroPontoEMCA\exportacoes\
+
+ESTRUTURA DO BANCO
+------------------
+calendario_turma
+- Gera todos os dias do ano para cada turma.
+
+ aulas
+- Turma
+- Turno
+- Data
+- Professor
+- Aula 01
+- Aula 02
+- Arquivo de origem
+- Aba de origem
+
+resumo_professor_mensal
+- Professor
+- Ano
+- Mês
+- Disciplinas do mês
+- Turmas do mês
+
+OBSERVAÇÃO
+----------
+A importação pode ser executada novamente. Os registros das turmas importadas
+são atualizados a partir dos arquivos de horários, evitando duplicação.
