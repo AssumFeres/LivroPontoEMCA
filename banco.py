@@ -10,18 +10,29 @@ from config import ANO_PADRAO, CAMINHO_BANCO, TURMAS
 def conectar(caminho_banco: str | Path = CAMINHO_BANCO) -> sqlite3.Connection:
     caminho = Path(caminho_banco)
     caminho.parent.mkdir(parents=True, exist_ok=True)
+
     conexao = sqlite3.connect(caminho)
     conexao.execute("PRAGMA foreign_keys = ON")
+
     return conexao
 
 
-def coluna_existe(conn: sqlite3.Connection, tabela: str, coluna: str) -> bool:
-    colunas = conn.execute(f"PRAGMA table_info({tabela})").fetchall()
+def coluna_existe(
+    conn: sqlite3.Connection,
+    tabela: str,
+    coluna: str,
+) -> bool:
+    colunas = conn.execute(
+        f"PRAGMA table_info({tabela})"
+    ).fetchall()
+
     return any(item[1] == coluna for item in colunas)
 
 
 def migrar_banco_existente(conn: sqlite3.Connection) -> None:
-    """Atualiza bancos criados por versões anteriores do projeto."""
+    """
+    Atualiza automaticamente bancos criados por versões anteriores.
+    """
 
     tabelas = {
         row[0]
@@ -30,16 +41,80 @@ def migrar_banco_existente(conn: sqlite3.Connection) -> None:
         ).fetchall()
     }
 
-    # Versões anteriores não possuíam a coluna turno.
-    if "calendario_turma" in tabelas and not coluna_existe(
-        conn, "calendario_turma", "turno"
+    # --------------------------------------------------------
+    # COLUNA TURNO
+    # --------------------------------------------------------
+
+    if (
+        "calendario_turma" in tabelas
+        and not coluna_existe(
+            conn,
+            "calendario_turma",
+            "turno",
+        )
     ):
-        conn.execute("ALTER TABLE calendario_turma ADD COLUMN turno TEXT")
+        conn.execute(
+            """
+            ALTER TABLE calendario_turma
+            ADD COLUMN turno TEXT
+            """
+        )
 
-    if "aulas" in tabelas and not coluna_existe(conn, "aulas", "turno"):
-        conn.execute("ALTER TABLE aulas ADD COLUMN turno TEXT")
+    if (
+        "aulas" in tabelas
+        and not coluna_existe(
+            conn,
+            "aulas",
+            "turno",
+        )
+    ):
+        conn.execute(
+            """
+            ALTER TABLE aulas
+            ADD COLUMN turno TEXT
+            """
+        )
 
-    # Preenche o turno usando a configuração atual das turmas.
+    # --------------------------------------------------------
+    # IDENTIFICAÇÃO DE SEGUNDO INSTRUTOR
+    # --------------------------------------------------------
+
+    if (
+        "aulas" in tabelas
+        and not coluna_existe(
+            conn,
+            "aulas",
+            "segundo_instrutor_aula_01",
+        )
+    ):
+        conn.execute(
+            """
+            ALTER TABLE aulas
+            ADD COLUMN segundo_instrutor_aula_01
+            INTEGER NOT NULL DEFAULT 0
+            """
+        )
+
+    if (
+        "aulas" in tabelas
+        and not coluna_existe(
+            conn,
+            "aulas",
+            "segundo_instrutor_aula_02",
+        )
+    ):
+        conn.execute(
+            """
+            ALTER TABLE aulas
+            ADD COLUMN segundo_instrutor_aula_02
+            INTEGER NOT NULL DEFAULT 0
+            """
+        )
+
+    # --------------------------------------------------------
+    # COMPLETA TURNO EM REGISTROS ANTIGOS
+    # --------------------------------------------------------
+
     for cfg in TURMAS:
         if "calendario_turma" in tabelas:
             conn.execute(
@@ -47,9 +122,15 @@ def migrar_banco_existente(conn: sqlite3.Connection) -> None:
                 UPDATE calendario_turma
                    SET turno = ?
                  WHERE turma = ?
-                   AND (turno IS NULL OR TRIM(turno) = '')
+                   AND (
+                        turno IS NULL
+                        OR TRIM(turno) = ''
+                   )
                 """,
-                (cfg["turno"], cfg["turma"]),
+                (
+                    cfg["turno"],
+                    cfg["turma"],
+                ),
             )
 
         if "aulas" in tabelas:
@@ -58,9 +139,15 @@ def migrar_banco_existente(conn: sqlite3.Connection) -> None:
                 UPDATE aulas
                    SET turno = ?
                  WHERE turma = ?
-                   AND (turno IS NULL OR TRIM(turno) = '')
+                   AND (
+                        turno IS NULL
+                        OR TRIM(turno) = ''
+                   )
                 """,
-                (cfg["turno"], cfg["turma"]),
+                (
+                    cfg["turno"],
+                    cfg["turma"],
+                ),
             )
 
 
@@ -72,7 +159,6 @@ def criar_banco(
     caminho.parent.mkdir(parents=True, exist_ok=True)
 
     with conectar(caminho) as conn:
-        # Primeiro cria as tabelas que ainda não existem.
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS calendario_turma (
@@ -91,9 +177,21 @@ def criar_banco(
                 nome_completo TEXT NOT NULL,
                 aula_01 TEXT,
                 aula_02 TEXT,
+
+                segundo_instrutor_aula_01
+                    INTEGER NOT NULL DEFAULT 0,
+
+                segundo_instrutor_aula_02
+                    INTEGER NOT NULL DEFAULT 0,
+
                 arquivo_origem TEXT NOT NULL,
                 aba_origem TEXT NOT NULL,
-                UNIQUE (turma, data, nome_completo)
+
+                UNIQUE (
+                    turma,
+                    data,
+                    nome_completo
+                )
             );
 
             CREATE INDEX IF NOT EXISTS idx_aulas_data
@@ -109,12 +207,17 @@ def criar_banco(
                 nome_completo TEXT NOT NULL,
                 disciplinas TEXT NOT NULL,
                 turmas TEXT NOT NULL,
-                UNIQUE (ano, mes, nome_completo)
+                UNIQUE (
+                    ano,
+                    mes,
+                    nome_completo
+                )
             );
 
             CREATE TABLE IF NOT EXISTS log_importacao (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                data_hora TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                data_hora TEXT NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP,
                 turma TEXT,
                 arquivo TEXT,
                 aba TEXT,
@@ -124,23 +227,36 @@ def criar_banco(
             """
         )
 
-        # Depois migra tabelas antigas que já existiam com outra estrutura.
+        # Atualiza bancos criados pelas versões anteriores.
         migrar_banco_existente(conn)
+
+        # ----------------------------------------------------
+        # CALENDÁRIO ANUAL
+        # ----------------------------------------------------
 
         inicio = date(ano, 1, 1)
         fim = date(ano, 12, 31)
 
         for cfg in TURMAS:
             atual = inicio
+
             while atual <= fim:
                 conn.execute(
                     """
-                    INSERT OR IGNORE INTO calendario_turma
-                        (turma, turno, data)
+                    INSERT OR IGNORE INTO calendario_turma (
+                        turma,
+                        turno,
+                        data
+                    )
                     VALUES (?, ?, ?)
                     """,
-                    (cfg["turma"], cfg["turno"], atual.isoformat()),
+                    (
+                        cfg["turma"],
+                        cfg["turno"],
+                        atual.isoformat(),
+                    ),
                 )
+
                 atual += timedelta(days=1)
 
         conn.commit()
@@ -150,4 +266,8 @@ def criar_banco(
 
 if __name__ == "__main__":
     banco = criar_banco()
-    print(f"Banco criado/atualizado em: {banco}")
+
+    print(
+        "Banco criado/atualizado em: "
+        f"{banco}"
+    )

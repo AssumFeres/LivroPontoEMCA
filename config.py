@@ -4,11 +4,28 @@ ANO_PADRAO = 2026
 
 PASTA_HORARIOS = Path(r"C:\Users\assum\OneDrive\EMCA\Horários\2026")
 PASTA_PROJETO = Path(r"C:\Projetos\LivroPontoEMCA")
+
 CAMINHO_BANCO = PASTA_PROJETO / "dados" / "livro_ponto_emca.db"
 PASTA_EXPORTACOES = PASTA_PROJETO / "exportacoes"
 
-# Cada item representa uma turma que deve ser importada.
-# "arquivo" é relativo à pasta C:\Users\391665\OneDrive\EMCA\Horários\2026
+# ============================================================
+# EXCEÇÕES DE ATRIBUIÇÃO DE PROFESSOR
+# ============================================================
+# A exceção abaixo substitui o professor definido na aba Base
+# somente para a combinação turma + disciplina indicada.
+#
+# Por padrão, professores definidos aqui são considerados
+# PRIMEIROS INSTRUTORES.
+EXCECOES_PROFESSOR = {
+    ("S3", "PSO"): [
+        "CLÁUDIA CRISTINA AROUCA NORBERTO",
+    ],
+}
+
+# ============================================================
+# TURMAS / FONTES DE HORÁRIO
+# ============================================================
+
 TURMAS = [
     {
         "turma": "AVI 26",
@@ -73,14 +90,4 @@ MESES_PT = {
     10: "OUTUBRO",
     11: "NOVEMBRO",
     12: "DEZEMBRO",
-}
-
-# ============================================================
-# EXCEÇÕES DE ATRIBUIÇÃO DE PROFESSOR
-# ============================================================
-
-EXCECOES_PROFESSOR = {
-    ("S3", "PSO"): [
-        "CLÁUDIA CRISTINA AROUCA NORBERTO",
-    ],
 }
