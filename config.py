@@ -2,7 +2,7 @@ from pathlib import Path
 
 ANO_PADRAO = 2026
 
-PASTA_HORARIOS = Path(r"C:\Users\assum\OneDrive\EMCA\Horários\2026")
+PASTA_HORARIOS = Path(r"C:\Users\391665\OneDrive\EMCA\Horários\2026")
 PASTA_PROJETO = Path(r"C:\Projetos\LivroPontoEMCA")
 
 CAMINHO_BANCO = PASTA_PROJETO / "dados" / "livro_ponto_emca.db"

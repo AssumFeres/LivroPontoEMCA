@@ -11,7 +11,9 @@ from io import BytesIO
 from pathlib import Path
 
 from openpyxl import load_workbook
-from openpyxl.drawing.image import Image as ExcelImage
+from openpyxl.drawing.image import (
+    Image as ExcelImage,
+)
 
 from config import (
     CAMINHO_BANCO,
@@ -25,67 +27,48 @@ from config import (
 # CONFIGURAÇÃO DO MODELO
 # ============================================================
 
-PASTA_MODELOS = PASTA_PROJETO / "modelos"
-
-CAMINHO_MODELO_PONTO = (
-    PASTA_MODELOS / "Modelo_de_Ponto_Mensal_Instrutor.xlsx"
+PASTA_MODELOS = (
+    PASTA_PROJETO
+    / "modelos"
 )
 
-ABA_MODELO_01 = "modelo 01"
-ABA_MODELO_011 = "modelo 01.1"
+CAMINHO_MODELO_PONTO = (
+    PASTA_MODELOS
+    / "Modelo_de_Ponto_Mensal_Instrutor.xlsx"
+)
 
-# Linhas reservadas aos dias úteis.
-# A linha 31 é a linha de TOTAL e não pode ser apagada.
+ABA_MODELO = "Prof. (2)"
+
 LINHA_INICIAL_DIAS = 9
-LINHA_FINAL_DIAS = 30
-LINHA_TOTAL = 31
-
-
-# ============================================================
-# DISTRIBUIÇÃO DAS AULAS NO NOVO MODELO
-# ============================================================
-#
-# O horário da EMCA possui:
-#
-#   AULA 01 -> corresponde aos 3 primeiros períodos
-#   AULA 02 -> corresponde aos 3 últimos lançamentos, compartilhando a 3ª aula
-#
-# No novo modelo, a 3ª aula ocupa uma célula mesclada:
-#
-# VESPERTINO
-#   1ª = C
-#   2ª = D
-#   3ª = E:F
-#   metade direita da 3ª aula = F
-#   4ª = G
-#   5ª = H
-#   Extracurricular = I
-#
-# NOTURNO
-#   1ª = J
-#   2ª = K
-#   3ª = L:M
-#   metade direita da 3ª aula = M
-#   4ª = N
-#   5ª = O
-#   Extracurricular = P
-#
-# Q = Soma diária
-#
-# ============================================================
+LINHA_FINAL_DIAS = 31
 
 COLUNAS_VESPERTINO = {
-    "aula_01": ("C", "D", "E"),
-    "aula_02": ("F", "G", "H"),
-    "extracurricular": "I",
+    "aula_01": (
+        "C",
+        "D",
+        "E",
+    ),
+
+    "aula_02": (
+        "F",
+        "G",
+        "H",
+    ),
 }
 
 COLUNAS_NOTURNO = {
-    "aula_01": ("J", "K", "L"),
-    "aula_02": ("M", "N", "O"),
-    "extracurricular": "P",
-}
+    "aula_01": (
+        "I",
+        "J",
+        "K",
+    ),
 
+    "aula_02": (
+        "L",
+        "M",
+        "N",
+    ),
+}
 
 DIAS_SEMANA_PT = {
     0: "Segunda-feira",
@@ -106,13 +89,6 @@ def dias_uteis_mes(
     ano: int,
     mes: int,
 ) -> list[date]:
-    """
-    Retorna somente segunda a sexta-feira.
-
-    Conforme a regra atual do Livro Ponto, os feriados permanecem
-    relacionados na folha; somente sábado e domingo são excluídos.
-    """
-
     ultimo_dia = calendar.monthrange(
         ano,
         mes,
@@ -140,17 +116,9 @@ def normalizar_turno(
     turno: str | None,
     turma: str,
 ) -> str:
-    """
-    Usa o turno armazenado no banco.
-
-    Por segurança:
-        U3 = VESPERTINO
-        demais turmas = NOTURNO
-    """
-
     if turno:
         turno_normalizado = (
-            str(turno)
+            turno
             .strip()
             .upper()
         )
@@ -161,7 +129,7 @@ def normalizar_turno(
         }:
             return turno_normalizado
 
-    if str(turma).strip().upper() == "U3":
+    if turma.strip().upper() == "U3":
         return "VESPERTINO"
 
     return "NOTURNO"
@@ -173,7 +141,9 @@ def sigla_valida(
     if valor is None:
         return None
 
-    texto = str(valor).strip()
+    texto = str(
+        valor
+    ).strip()
 
     return texto or None
 
@@ -183,16 +153,19 @@ def formatar_sigla_livro(
     segundo_instrutor: bool,
 ) -> str | None:
     """
-    O asterisco é apenas visual.
+    No banco a disciplina permanece sem asterisco.
 
-    No banco:
-        OTB
+    O asterisco é incluído somente na apresentação
+    do Livro Ponto quando o professor é o segundo instrutor.
 
-    No Livro Ponto do segundo instrutor:
-        OTB *
+    Exemplo:
+        SEL   -> primeiro instrutor
+        SEL * -> segundo instrutor
     """
 
-    sigla = sigla_valida(sigla)
+    sigla = sigla_valida(
+        sigla
+    )
 
     if not sigla:
         return None
@@ -206,160 +179,59 @@ def formatar_sigla_livro(
 def juntar_siglas(
     siglas: list[str],
 ) -> str | None:
-    """
-    Evita duplicidade se mais de uma turma gerar a mesma sigla
-    para o professor no mesmo turno/bloco de aula.
-    """
-
     unicas: list[str] = []
 
     for sigla in siglas:
-        texto = str(sigla).strip()
+        sigla = sigla.strip()
 
         if (
-            texto
-            and texto not in unicas
+            sigla
+            and sigla not in unicas
         ):
-            unicas.append(texto)
+            unicas.append(
+                sigla
+            )
 
     if not unicas:
         return None
 
-    return " / ".join(unicas)
+    return " / ".join(
+        unicas
+    )
+
+
+def preencher_tres_colunas(
+    ws,
+    linha: int,
+    colunas: tuple[
+        str,
+        str,
+        str,
+    ],
+    valor: str | None,
+) -> None:
+    for coluna in colunas:
+        ws[
+            f"{coluna}{linha}"
+        ] = valor
 
 
 def limpar_area_dias(
     ws,
 ) -> None:
-    """
-    Limpa somente os campos que o Python preenche.
-
-    IMPORTANTE:
-    - não limpa Q, pois Q possui as fórmulas;
-    - não limpa a linha 31, pois ela possui o total;
-    - preserva estilos, bordas, mesclagens e rodapés.
-    """
-
     for linha in range(
         LINHA_INICIAL_DIAS,
         LINHA_FINAL_DIAS + 1,
     ):
-        # Data e dia da semana
-        ws[f"A{linha}"] = None
-        ws[f"B{linha}"] = None
-
-        # Vespertino
-        for coluna in (
-            "C", "D", "E", "F", "G", "H", "I"
+        for coluna in range(
+            1,
+            17,
         ):
-            ws[f"{coluna}{linha}"] = None
+            ws.cell(
+                row=linha,
+                column=coluna,
+            ).value = None
 
-        # Noturno
-        for coluna in (
-            "J", "K", "L", "M", "N", "O", "P"
-        ):
-            ws[f"{coluna}{linha}"] = None
-
-
-def preencher_aula_01(
-    ws,
-    linha: int,
-    turno: str,
-    valor: str | None,
-) -> None:
-    """
-    AULA 01 ocupa três períodos.
-
-    O 3º período é uma célula mesclada:
-        E:F no vespertino
-        L:M no noturno
-
-    Em células mescladas, escreve-se somente na célula
-    superior/esquerda (E ou L).
-    """
-
-    if turno == "VESPERTINO":
-        colunas = COLUNAS_VESPERTINO["aula_01"]
-    else:
-        colunas = COLUNAS_NOTURNO["aula_01"]
-
-    for coluna in colunas:
-        ws[f"{coluna}{linha}"] = valor
-
-
-def preencher_aula_02(
-    ws,
-    linha: int,
-    turno: str,
-    valor: str | None,
-) -> None:
-    """
-    AULA 02 ocupa a metade direita da 3ª aula e os dois últimos períodos.
-
-    Vespertino: F, G, H
-    Noturno: M, N, O
-    """
-
-    if turno == "VESPERTINO":
-        colunas = COLUNAS_VESPERTINO["aula_02"]
-    else:
-        colunas = COLUNAS_NOTURNO["aula_02"]
-
-    for coluna in colunas:
-        ws[f"{coluna}{linha}"] = valor
-
-
-def definir_formula_soma(
-    ws,
-    linha: int,
-) -> None:
-    """
-    Fórmula definida no novo modelo da EMCA.
-
-    A 3ª aula é representada por duas células mescladas.
-    Por isso COUNTA(E:F) e COUNTA(L:M) são divididos por 2.
-
-    Cada período corresponde a 1,2 hora.
-    """
-
-    ws[f"Q{linha}"] = (
-        f'=IF(('
-        f'COUNTA(C{linha}:D{linha},G{linha}:H{linha},'
-        f'J{linha}:K{linha},N{linha}:O{linha})'
-        f'+COUNTA(E{linha}:F{linha},L{linha}:M{linha})/2'
-        f')*1.2=0,"",('
-        f'COUNTA(C{linha}:D{linha},G{linha}:H{linha},'
-        f'J{linha}:K{linha},N{linha}:O{linha})'
-        f'+COUNTA(E{linha}:F{linha},L{linha}:M{linha})/2'
-        f')*1.2)'
-    )
-
-
-def garantir_formulas_soma(
-    ws,
-) -> None:
-    """
-    Garante a fórmula em todos os dias disponíveis do modelo
-    e o total mensal em Q31.
-    """
-
-    for linha in range(
-        LINHA_INICIAL_DIAS,
-        LINHA_FINAL_DIAS + 1,
-    ):
-        definir_formula_soma(
-            ws,
-            linha,
-        )
-
-    ws[f"Q{LINHA_TOTAL}"] = (
-        f"=SUM(Q{LINHA_INICIAL_DIAS}:Q{LINHA_FINAL_DIAS})"
-    )
-
-
-# ============================================================
-# BANCO
-# ============================================================
 
 def obter_colunas_tabela(
     conexao: sqlite3.Connection,
@@ -400,20 +272,45 @@ def obter_coluna_professor(
     )
 
 
+def obter_coluna_turno(
+    conexao: sqlite3.Connection,
+) -> str | None:
+    colunas = obter_colunas_tabela(
+        conexao,
+        "aulas",
+    )
+
+    if "turno" in colunas:
+        return "turno"
+
+    return None
+
+
 def obter_professores_mes(
     conexao: sqlite3.Connection,
     ano: int,
     mes: int,
 ) -> list[str]:
-    inicio = f"{ano:04d}-{mes:02d}-01"
+    inicio = (
+        f"{ano:04d}-"
+        f"{mes:02d}-01"
+    )
 
     if mes == 12:
-        proximo = f"{ano + 1:04d}-01-01"
+        proximo = (
+            f"{ano + 1:04d}-"
+            "01-01"
+        )
     else:
-        proximo = f"{ano:04d}-{mes + 1:02d}-01"
+        proximo = (
+            f"{ano:04d}-"
+            f"{mes + 1:02d}-01"
+        )
 
-    coluna_professor = obter_coluna_professor(
-        conexao
+    coluna_professor = (
+        obter_coluna_professor(
+            conexao
+        )
     )
 
     sql = f"""
@@ -424,8 +321,13 @@ def obter_professores_mes(
 
         WHERE data >= ?
           AND data < ?
-          AND "{coluna_professor}" IS NOT NULL
-          AND TRIM("{coluna_professor}") <> ''
+
+          AND "{coluna_professor}"
+              IS NOT NULL
+
+          AND TRIM(
+              "{coluna_professor}"
+          ) <> ''
 
         ORDER BY
             "{coluna_professor}"
@@ -440,7 +342,9 @@ def obter_professores_mes(
     ).fetchall()
 
     return [
-        str(linha[0]).strip()
+        str(
+            linha[0]
+        ).strip()
         for linha in linhas
     ]
 
@@ -451,15 +355,26 @@ def obter_aulas_professor(
     ano: int,
     mes: int,
 ) -> list[sqlite3.Row]:
-    inicio = f"{ano:04d}-{mes:02d}-01"
+    inicio = (
+        f"{ano:04d}-"
+        f"{mes:02d}-01"
+    )
 
     if mes == 12:
-        proximo = f"{ano + 1:04d}-01-01"
+        proximo = (
+            f"{ano + 1:04d}-"
+            "01-01"
+        )
     else:
-        proximo = f"{ano:04d}-{mes + 1:02d}-01"
+        proximo = (
+            f"{ano:04d}-"
+            f"{mes + 1:02d}-01"
+        )
 
-    coluna_professor = obter_coluna_professor(
-        conexao
+    coluna_professor = (
+        obter_coluna_professor(
+            conexao
+        )
     )
 
     colunas = obter_colunas_tabela(
@@ -467,23 +382,31 @@ def obter_aulas_professor(
         "aulas",
     )
 
-    expressao_turno = (
-        '"turno"'
-        if "turno" in colunas
-        else "NULL"
-    )
+    if "turno" in colunas:
+        expressao_turno = '"turno"'
+    else:
+        expressao_turno = "NULL"
 
-    expressao_segundo_01 = (
-        '"segundo_instrutor_aula_01"'
-        if "segundo_instrutor_aula_01" in colunas
-        else "0"
-    )
+    # Compatibilidade com banco ainda não migrado.
+    if (
+        "segundo_instrutor_aula_01"
+        in colunas
+    ):
+        expressao_segundo_01 = (
+            '"segundo_instrutor_aula_01"'
+        )
+    else:
+        expressao_segundo_01 = "0"
 
-    expressao_segundo_02 = (
-        '"segundo_instrutor_aula_02"'
-        if "segundo_instrutor_aula_02" in colunas
-        else "0"
-    )
+    if (
+        "segundo_instrutor_aula_02"
+        in colunas
+    ):
+        expressao_segundo_02 = (
+            '"segundo_instrutor_aula_02"'
+        )
+    else:
+        expressao_segundo_02 = "0"
 
     sql = f"""
         SELECT
@@ -558,35 +481,34 @@ def obter_resumo_professor(
                 aula_02
             )
 
+    disciplinas_texto = ", ".join(
+        sorted(
+            disciplinas
+        )
+    )
+
+    turmas_texto = ", ".join(
+        sorted(
+            turmas
+        )
+    )
+
     return (
-        ", ".join(
-            sorted(disciplinas)
-        ),
-        ", ".join(
-            sorted(turmas)
-        ),
+        disciplinas_texto,
+        turmas_texto,
     )
 
 
 def agrupar_aulas_por_data(
     aulas: list[sqlite3.Row],
 ) -> dict:
-    """
-    Agrupa por:
-        data
-        -> turno
-        -> aula_01/aula_02
-
-    O asterisco do segundo instrutor é aplicado nesta etapa,
-    somente para apresentação.
-    """
-
     dados = defaultdict(
         lambda: {
             "VESPERTINO": {
                 "aula_01": [],
                 "aula_02": [],
             },
+
             "NOTURNO": {
                 "aula_01": [],
                 "aula_02": [],
@@ -648,128 +570,51 @@ def agrupar_aulas_por_data(
                 aula_02
             )
 
-    return dict(dados)
+    return dict(
+        dados
+    )
 
 
-# ============================================================
-# NOMES DAS ABAS
-# ============================================================
-
-def primeiro_nome(
-    nome_completo: str,
-) -> str:
-    """
-    Exemplo:
-        MANUEL DE LEMOS GASPAR -> MANUEL
-        CLÁUDIA CRISTINA ...   -> CLÁUDIA
-    """
-
-    partes = str(
-        nome_completo
-    ).strip().split()
-
-    if not partes:
-        return "INSTRUTOR"
-
-    return partes[0].upper()
-
-
-def limpar_nome_aba(
+def nome_aba_professor(
     nome: str,
+    existentes: set[str],
 ) -> str:
-    """
-    Remove caracteres proibidos pelo Excel.
-    """
-
     nome = re.sub(
         r'[\\/*?:\[\]]',
         "",
-        nome,
+        nome.strip(),
     )
 
     nome = re.sub(
         r"\s+",
         " ",
         nome,
-    ).strip()
-
-    return nome[:31]
-
-
-def nomes_abas_professor(
-    professor: str,
-    usados: set[str],
-    contador_primeiros_nomes: dict[str, int],
-) -> tuple[str, str]:
-    """
-    Padrão normal:
-        MANUEL - 01
-        MANUEL - 01.1
-
-    Se houver dois professores com o mesmo primeiro nome:
-        JOÃO - 01
-        JOÃO - 01.1
-        JOÃO 2 - 01
-        JOÃO 2 - 01.1
-    """
-
-    base = primeiro_nome(
-        professor
     )
 
-    contador_primeiros_nomes[
-        base
-    ] += 1
+    if len(nome) > 31:
+        nome = nome[:31]
 
-    numero = contador_primeiros_nomes[
-        base
-    ]
-
-    if numero == 1:
-        identificador = base
-    else:
-        identificador = (
-            f"{base} {numero}"
-        )
-
-    nome_01 = limpar_nome_aba(
-        f"{identificador} - 01"
+    base = (
+        nome
+        or "Professor"
     )
 
-    nome_011 = limpar_nome_aba(
-        f"{identificador} - 01.1"
-    )
+    candidato = base
+    contador = 2
 
-    # Proteção extra contra qualquer colisão inesperada.
-    while (
-        nome_01 in usados
-        or nome_011 in usados
-    ):
-        numero += 1
-
-        identificador = (
-            f"{base} {numero}"
+    while candidato in existentes:
+        sufixo = (
+            f"_{contador}"
         )
 
-        nome_01 = limpar_nome_aba(
-            f"{identificador} - 01"
+        candidato = (
+            f"{base[:31-len(sufixo)]}"
+            f"{sufixo}"
         )
 
-        nome_011 = limpar_nome_aba(
-            f"{identificador} - 01.1"
-        )
+        contador += 1
 
-    contador_primeiros_nomes[
-        base
-    ] = numero
-
-    usados.add(nome_01)
-    usados.add(nome_011)
-
-    return (
-        nome_01,
-        nome_011,
-    )
+    return candidato
 
 
 # ============================================================
@@ -780,9 +625,9 @@ def capturar_imagens_modelo(
     ws_modelo,
 ) -> list[dict]:
     """
-    Lê as imagens da aba modelo apenas uma vez.
+    Lê as imagens do modelo UMA ÚNICA VEZ.
 
-    Evita o erro:
+    Isso evita o erro:
         I/O operation on closed file
     """
 
@@ -798,11 +643,17 @@ def capturar_imagens_modelo(
         imagens_cache.append(
             {
                 "dados": dados,
-                "width": imagem.width,
-                "height": imagem.height,
-                "anchor": deepcopy(
-                    imagem.anchor
-                ),
+
+                "width":
+                    imagem.width,
+
+                "height":
+                    imagem.height,
+
+                "anchor":
+                    deepcopy(
+                        imagem.anchor
+                    ),
             }
         )
 
@@ -814,7 +665,8 @@ def aplicar_imagens_na_planilha(
     imagens_cache: list[dict],
 ) -> None:
     """
-    Cria uma nova imagem independente em cada aba gerada.
+    Cria uma cópia independente das imagens
+    em cada aba de professor.
     """
 
     for item in imagens_cache:
@@ -844,7 +696,7 @@ def aplicar_imagens_na_planilha(
 
 
 # ============================================================
-# PREENCHIMENTO DE UMA ABA
+# PREENCHIMENTO DO LIVRO PONTO
 # ============================================================
 
 def preencher_planilha_professor(
@@ -854,15 +706,12 @@ def preencher_planilha_professor(
     mes: int,
     aulas: list[sqlite3.Row],
 ) -> None:
-    disciplinas, turmas = (
-        obter_resumo_professor(
-            aulas
-        )
+    (
+        disciplinas,
+        turmas,
+    ) = obter_resumo_professor(
+        aulas
     )
-
-    # --------------------------------------------------------
-    # CABEÇALHO
-    # --------------------------------------------------------
 
     ws["B3"] = professor
 
@@ -877,20 +726,9 @@ def preencher_planilha_professor(
     )
 
     ws["B5"] = disciplinas
-
-    # N5:O5 contém o rótulo "Turma:".
-    # O valor começa em P5 nas duas abas-modelo.
-    ws["P5"] = turmas
-
-    # --------------------------------------------------------
-    # ÁREA DOS DIAS
-    # --------------------------------------------------------
+    ws["O5"] = turmas
 
     limpar_area_dias(
-        ws
-    )
-
-    garantir_formulas_soma(
         ws
     )
 
@@ -919,7 +757,10 @@ def preencher_planilha_professor(
         )
     )
 
-    for indice, data_atual in enumerate(
+    for (
+        indice,
+        data_atual,
+    ) in enumerate(
         dias
     ):
         linha = (
@@ -927,7 +768,6 @@ def preencher_planilha_professor(
             + indice
         )
 
-        # Data
         ws[
             f"A{linha}"
         ] = datetime(
@@ -942,7 +782,6 @@ def preencher_planilha_professor(
             "dd/mm/yyyy"
         )
 
-        # Dia da semana
         ws[
             f"B{linha}"
         ] = DIAS_SEMANA_PT[
@@ -957,10 +796,6 @@ def preencher_planilha_professor(
 
         if not dados_dia:
             continue
-
-        # ====================================================
-        # VESPERTINO
-        # ====================================================
 
         vespertino_01 = juntar_siglas(
             dados_dia[
@@ -978,34 +813,6 @@ def preencher_planilha_professor(
             ]
         )
 
-        preencher_aula_01(
-            ws,
-            linha,
-            "VESPERTINO",
-            vespertino_01,
-        )
-
-        preencher_aula_02(
-            ws,
-            linha,
-            "VESPERTINO",
-            vespertino_02,
-        )
-
-        # Extracurricular vespertino:
-        # marca X se houver qualquer aula no vespertino.
-        if (
-            vespertino_01
-            or vespertino_02
-        ):
-            ws[
-                f"{COLUNAS_VESPERTINO['extracurricular']}{linha}"
-            ] = "X"
-
-        # ====================================================
-        # NOTURNO
-        # ====================================================
-
         noturno_01 = juntar_siglas(
             dados_dia[
                 "NOTURNO"
@@ -1022,33 +829,64 @@ def preencher_planilha_professor(
             ]
         )
 
-        preencher_aula_01(
+        preencher_tres_colunas(
             ws,
             linha,
-            "NOTURNO",
+            COLUNAS_VESPERTINO[
+                "aula_01"
+            ],
+            vespertino_01,
+        )
+
+        preencher_tres_colunas(
+            ws,
+            linha,
+            COLUNAS_VESPERTINO[
+                "aula_02"
+            ],
+            vespertino_02,
+        )
+
+        preencher_tres_colunas(
+            ws,
+            linha,
+            COLUNAS_NOTURNO[
+                "aula_01"
+            ],
             noturno_01,
         )
 
-        preencher_aula_02(
+        preencher_tres_colunas(
             ws,
             linha,
-            "NOTURNO",
+            COLUNAS_NOTURNO[
+                "aula_02"
+            ],
             noturno_02,
         )
 
-        # Extracurricular noturno:
-        # marca X se houver qualquer aula no noturno.
-        if (
-            noturno_01
-            or noturno_02
+        # Extracurricular:
+        # marca X em todo dia em que houver aula.
+        if any(
+            (
+                vespertino_01,
+                vespertino_02,
+                noturno_01,
+                noturno_02,
+            )
         ):
             ws[
-                f"{COLUNAS_NOTURNO['extracurricular']}{linha}"
+                f"O{linha}"
             ] = "X"
 
-    # --------------------------------------------------------
-    # IMPRESSÃO
-    # --------------------------------------------------------
+    # Assinatura sempre fica em branco.
+    for linha in range(
+        LINHA_INICIAL_DIAS,
+        LINHA_FINAL_DIAS + 1,
+    ):
+        ws[
+            f"P{linha}"
+        ] = None
 
     ws.sheet_view.showGridLines = False
 
@@ -1071,13 +909,8 @@ def gerar_livros_ponto(
     caminho_modelo: str | Path = CAMINHO_MODELO_PONTO,
 ) -> list[Path]:
     """
-    Gera UM arquivo mensal contendo DUAS abas por professor:
-
-        PRIMEIRONOME - 01
-        PRIMEIRONOME - 01.1
-
-    A primeira é baseada na aba "modelo 01".
-    A segunda é baseada na aba "modelo 01.1".
+    Gera UM arquivo mensal com uma aba
+    para cada professor.
     """
 
     if not 1 <= mes <= 12:
@@ -1125,7 +958,6 @@ def gerar_livros_ponto(
         )
     )
 
-    # Copia o modelo para preservar toda a estrutura do arquivo.
     shutil.copy2(
         caminho_modelo,
         caminho_saida,
@@ -1157,54 +989,36 @@ def gerar_livros_ponto(
             caminho_saida
         )
 
-        # ----------------------------------------------------
-        # CONFERE AS DUAS ABAS MODELO
-        # ----------------------------------------------------
-
-        for aba_obrigatoria in (
-            ABA_MODELO_01,
-            ABA_MODELO_011,
+        if (
+            ABA_MODELO
+            not in wb.sheetnames
         ):
-            if aba_obrigatoria not in wb.sheetnames:
-                raise ValueError(
-                    f"A aba '{aba_obrigatoria}' "
-                    "não foi encontrada no modelo."
-                )
+            raise ValueError(
+                f"A aba '{ABA_MODELO}' "
+                "não foi encontrada no modelo."
+            )
 
-        ws_modelo_01 = wb[
-            ABA_MODELO_01
+        ws_modelo = wb[
+            ABA_MODELO
         ]
 
-        ws_modelo_011 = wb[
-            ABA_MODELO_011
-        ]
-
-        # ----------------------------------------------------
-        # CAPTURA OS LOGOS/IMAGENS UMA ÚNICA VEZ
-        # ----------------------------------------------------
-
-        imagens_modelo_01 = (
+        # Lê as imagens uma única vez.
+        imagens_cache = (
             capturar_imagens_modelo(
-                ws_modelo_01
+                ws_modelo
             )
         )
 
-        imagens_modelo_011 = (
-            capturar_imagens_modelo(
-                ws_modelo_011
-            )
-        )
-
-        # ----------------------------------------------------
-        # CONTROLE DOS NOMES DAS ABAS
-        # ----------------------------------------------------
-
-        nomes_usados = set(
+        # Mantém somente a folha modelo
+        # antes de gerar as abas.
+        for nome in list(
             wb.sheetnames
-        )
+        ):
+            if nome != ABA_MODELO:
+                del wb[nome]
 
-        contador_primeiros_nomes = defaultdict(
-            int
+        existentes = set(
+            wb.sheetnames
         )
 
         print(
@@ -1215,19 +1029,13 @@ def gerar_livros_ponto(
 
         print(
             "Professores encontrados: "
-            f"{len(professores)}"
+            f"{len(professores)}\n"
         )
 
-        print(
-            "Abas a gerar: "
-            f"{len(professores) * 2}\n"
-        )
-
-        # ----------------------------------------------------
-        # GERA DUAS ABAS POR PROFESSOR
-        # ----------------------------------------------------
-
-        for numero, professor in enumerate(
+        for (
+            numero,
+            professor,
+        ) in enumerate(
             professores,
             start=1,
         ):
@@ -1238,59 +1046,28 @@ def gerar_livros_ponto(
                 mes,
             )
 
-            (
-                nome_aba_01,
-                nome_aba_011,
-            ) = nomes_abas_professor(
+            ws = wb.copy_worksheet(
+                ws_modelo
+            )
+
+            aplicar_imagens_na_planilha(
+                ws,
+                imagens_cache,
+            )
+
+            nome_aba = nome_aba_professor(
                 professor,
-                nomes_usados,
-                contador_primeiros_nomes,
+                existentes,
             )
 
-            # =================================================
-            # ABA MODELO 01
-            # =================================================
+            ws.title = nome_aba
 
-            ws_01 = wb.copy_worksheet(
-                ws_modelo_01
-            )
-
-            ws_01.title = (
-                nome_aba_01
-            )
-
-            aplicar_imagens_na_planilha(
-                ws_01,
-                imagens_modelo_01,
+            existentes.add(
+                nome_aba
             )
 
             preencher_planilha_professor(
-                ws=ws_01,
-                professor=professor,
-                ano=ano,
-                mes=mes,
-                aulas=aulas,
-            )
-
-            # =================================================
-            # ABA MODELO 01.1
-            # =================================================
-
-            ws_011 = wb.copy_worksheet(
-                ws_modelo_011
-            )
-
-            ws_011.title = (
-                nome_aba_011
-            )
-
-            aplicar_imagens_na_planilha(
-                ws_011,
-                imagens_modelo_011,
-            )
-
-            preencher_planilha_professor(
-                ws=ws_011,
+                ws=ws,
                 professor=professor,
                 ano=ano,
                 mes=mes,
@@ -1303,27 +1080,11 @@ def gerar_livros_ponto(
                 f"{professor}"
             )
 
-            print(
-                f"        {nome_aba_01}"
-            )
-
-            print(
-                f"        {nome_aba_011}"
-            )
-
-        # ----------------------------------------------------
-        # REMOVE AS DUAS ABAS QUE SERVIRAM COMO MODELO
-        # ----------------------------------------------------
-
+        # Remove a folha utilizada como molde.
         del wb[
-            ABA_MODELO_01
+            ABA_MODELO
         ]
 
-        del wb[
-            ABA_MODELO_011
-        ]
-
-        # Primeira aba gerada fica ativa.
         wb.active = 0
 
         wb.save(
@@ -1346,10 +1107,6 @@ def gerar_livros_ponto(
     finally:
         conexao.close()
 
-
-# ============================================================
-# EXECUÇÃO DIRETA
-# ============================================================
 
 if __name__ == "__main__":
     ano = int(
